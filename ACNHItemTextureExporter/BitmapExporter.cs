@@ -1,0 +1,122 @@
+﻿using Ryujinx.Graphics.Texture.Astc;
+using Syroot.NintenTools.NSW.Bntx;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace ACNHItemTextureExporter
+{
+    class BitmapExporter
+    {
+        public static void SaveBitmap(Texture texture, string FileName, bool ExportSurfaceLevel = false, int SurfaceLevel = 0, int MipLevel = 0)
+        {
+            // TODO: Handle array bitmaps
+            var arrayCount = 1;
+            if (arrayCount > 1 && !ExportSurfaceLevel)
+            {
+                string ext = Path.GetExtension(FileName);
+
+                int index = FileName.LastIndexOf('.');
+                string name = index == -1 ? FileName : FileName.Substring(0, index);
+
+                for (int i = 0; i < arrayCount; i++)
+                {
+                    Bitmap arrayBitMap = GetBitmap(texture, i, 0);
+                    arrayBitMap.Save($"{name}_Slice_{i}_{ext}");
+                    arrayBitMap.Dispose();
+                }
+
+                return;
+            }
+
+            Bitmap bitMap = GetBitmap(texture, SurfaceLevel, MipLevel);
+
+            bitMap.Save(FileName);
+            bitMap.Dispose();
+        }
+
+        public static Span<byte> ConvertBgraToRgba(Span<byte> bytes)
+        {
+            for (int i = 0; i < bytes.Length; i += 4)
+            {
+                var temp = bytes[i];
+                bytes[i] = bytes[i + 2];
+                bytes[i + 2] = temp;
+            }
+            return bytes;
+        }
+
+        public static Bitmap GetBitmap(Texture texture, int ArrayLevel = 0, int MipLevel = 0, int DepthLevel = 0)
+        {
+            int width = (int)Math.Max(1, texture.Width >> MipLevel);
+            int height = (int)Math.Max(1, texture.Height >> MipLevel);
+            byte[] data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
+            AstcDecoder.TryDecodeToRgba8(data, 4, 4, width, height, 1, 1, out var decoded);
+            return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
+        }
+
+        public static Bitmap GetBitmapFromBytes(Span<byte> Buffer, int Width, int Height, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
+        {
+            Rectangle Rect = new Rectangle(0, 0, Width, Height);
+
+            Bitmap Img = new Bitmap(Width, Height, pixelFormat);
+
+            BitmapData ImgData = Img.LockBits(Rect, ImageLockMode.WriteOnly, Img.PixelFormat);
+
+            if (Buffer.Length > ImgData.Stride * Img.Height)
+                throw new Exception($"Invalid Buffer Length ({Buffer.Length})!!!");
+
+            Marshal.Copy(Buffer.ToArray(), 0, ImgData.Scan0, Buffer.Length);
+
+            Img.UnlockBits(ImgData);
+
+            return Img;
+        }
+
+        public static byte[] GetImageData(Texture texture, int ArrayLevel = 0, int MipLevel = 0, int DepthLevel = 0)
+        {
+            int target = 1;
+            uint blkWidth = 4;
+            uint blkHeight = 4;
+
+            int linesPerBlockHeight = (1 << (int)texture.BlockHeightLog2) * 8;
+            uint bpp = 16;
+
+            uint numDepth = 1;
+
+            for (int depthLevel = 0; depthLevel < numDepth; depthLevel++)
+            {
+                for (int arrayLevel = 0; arrayLevel < texture.TextureData.Count; arrayLevel++)
+                {
+                    int blockHeightShift = 0;
+
+                    for (int mipLevel = 0; mipLevel < texture.TextureData[arrayLevel].Count; mipLevel++)
+                    {
+                        uint width = Math.Max(1, texture.Width >> mipLevel);
+                        uint height = Math.Max(1, texture.Height >> mipLevel);
+
+                        uint size = TegraX1Swizzle.DivRoundUp(width, blkWidth) * TegraX1Swizzle.DivRoundUp(height, blkHeight) * bpp;
+
+                        if (TegraX1Swizzle.Pow2RoundUp(TegraX1Swizzle.DivRoundUp(height, blkWidth)) < linesPerBlockHeight)
+                            blockHeightShift += 1;
+
+                        //Console.WriteLine($"{width} {height} {depth} {blkWidth} {blkHeight} {blkDepth} {target} {bpp} {texture.TileMode} {(int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift)} {texture.TextureData[arrayLevel][mipLevel].Length}");
+                        byte[] result = TegraX1Swizzle.Deswizzle(width, height, blkWidth, blkHeight, target, bpp, (uint)texture.TileMode, (int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift), texture.TextureData[arrayLevel][mipLevel]);
+                        //Create a copy and use that to remove uneeded data
+                        byte[] result_ = new byte[size];
+                        Array.Copy(result, 0, result_, 0, size);
+
+                        if (ArrayLevel == arrayLevel && MipLevel == mipLevel && DepthLevel == depthLevel)
+                            return result_;
+                    }
+                }
+            }
+
+            return new byte[0];
+        }
+    }
+}
