@@ -7,6 +7,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using Syroot.NintenTools.NSW.Bntx.GFX;
 
 namespace ACNHItemTextureExporter
 {
@@ -61,8 +62,9 @@ namespace ACNHItemTextureExporter
         {
             int width = (int)Math.Max(1, texture.Width >> MipLevel);
             int height = (int)Math.Max(1, texture.Height >> MipLevel);
+            TextureFormatInfo formatInfo = TextureFormatInfo.FormatTable[texture.Format];
             Memory<byte> data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
-            if (AstcDecoder.TryDecodeToRgba8(data, 4, 4, width, height, 1, 1, out var decoded))
+            if (AstcDecoder.TryDecodeToRgba8(data, (int) formatInfo.BlockWidth, (int) formatInfo.BlockHeight, width, height, 1, 1, out var decoded))
             {
                 return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
             }
@@ -96,9 +98,10 @@ namespace ACNHItemTextureExporter
 
         public static Memory<byte> GetImageData(Texture texture, int targetArrayLevel = 0, int targetMipLevel = 0, int targetDepthLevel = 0)
         {
+            TextureFormatInfo formatInfo = TextureFormatInfo.FormatTable[texture.Format];
             int target = 1;
-            uint blkWidth = 4;
-            uint blkHeight = 4;
+            uint blkWidth = formatInfo.BlockWidth;
+            uint blkHeight = formatInfo.BlockHeight;
 
             int linesPerBlockHeight = (1 << (int)texture.BlockHeightLog2) * 8;
             uint bpp = 16;

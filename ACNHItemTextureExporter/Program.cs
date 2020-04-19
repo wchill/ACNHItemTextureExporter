@@ -36,11 +36,12 @@ namespace ACNHItemTextureExporter
         {
             Parser.Default.ParseArguments<CommandLineOptions>(args)
                 .WithParsed(o =>
-               {
-                   SaveTextures(o);
+                {
+                    Directory.CreateDirectory(o.OutputFolder);
+                    SaveTextures(o);
 
-                   Console.WriteLine("Complete");
-               });
+                    Console.WriteLine("Complete");
+                });
         }
 
         static void SaveTextures(CommandLineOptions options)
@@ -53,17 +54,16 @@ namespace ACNHItemTextureExporter
             });
 
             var textureCount = 0;
+            var timer = new Stopwatch();
+            timer.Start();
             Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = options.Threads }, f =>
             {
-                var timer = new Stopwatch();
-                timer.Start();
                 var nameWithoutExtensions = GetCleanFilenameWithoutExtensions(f);
 
                 var texture = DecompressAndLoadFile(f);
                 var basename = Path.GetFileName(f);
                 if (texture == null)
                 {
-                    Console.Error.WriteLine($"Skipping {basename} because it didn't look like a layout file");
                     return;
                 }
 
@@ -72,19 +72,19 @@ namespace ACNHItemTextureExporter
                     var name = options.UseTextureName ? $"{texture.Name}.png" : $"{nameWithoutExtensions}.png";
 
                     BitmapExporter.SaveBitmap(texture, Path.Combine(options.OutputFolder, name));
-                    Console.WriteLine($"Exported {name}");
+                    Console.WriteLine($"[OUT] {basename} -> {name}");
                     Interlocked.Increment(ref textureCount);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    Console.Error.WriteLine($"Skipping {basename} because texture failed to load (maybe unknown format)");
+                    Console.WriteLine($"[ERR] {basename} - texture failed to load ({e.Message})");
                 }
 
-                timer.Stop();
-                Console.WriteLine($"Took {timer.ElapsedMilliseconds}ms");
             });
 
+            timer.Stop();
             Console.WriteLine($"Saved {textureCount} textures");
+            Console.WriteLine($"Took {timer.ElapsedMilliseconds}ms");
         }
 
         static Texture DecompressAndLoadFile(string path)
@@ -92,7 +92,7 @@ namespace ACNHItemTextureExporter
             var ext = Path.GetExtension(path);
             if (ext == ".bfres")
             {
-                return GetTexture(new ResFile(path));
+                return GetTexture(path, new ResFile(path));
             }
             else
             {
@@ -106,25 +106,45 @@ namespace ACNHItemTextureExporter
                         using (var resFileStream = sarc.ExportStream(resFiles.First().Item2))
                         {
                             var resFile = new ResFile(resFileStream);
-                            return GetTexture(resFile);
+                            return GetTexture(path, resFile);
                         }
                     }
                 }
             }
         }
 
-        static Texture GetTexture(ResFile file)
+        static Texture GetTexture(string path, ResFile file)
         {
-            if (file.ExternalFiles.Count() > 1) return null;
+            var basename = Path.GetFileName(path);
+            if (file.ExternalFiles.Count() > 1)
+            {
+                Console.WriteLine($"[SKIP] {basename} - contains multiple external files");
+                return null;
+            }
             try
             {
                 using (var bntxStream = file.ExternalFiles.First().GetStream())
                 {
                     var bntxFile = new BntxFile(bntxStream);
-                    if (bntxFile.Textures.Count != 1) return null;
+                    if (bntxFile.Textures.Count != 1)
+                    {
+                        Console.WriteLine($"[SKIP] {basename} - contains {bntxFile.Textures.Count} textures");
+                        return null;
+                    }
                     var texture = bntxFile.Textures.First();
-                    if (texture.Format != SurfaceFormat.ASTC_4x4_SRGB) return null;
-                    return texture;
+                    if (texture.Format.ToString().Contains("ASTC"))
+                    {
+                        return texture;
+                    }
+
+                    if (TextureFormatInfo.FormatTable.ContainsKey(texture.Format))
+                    {
+                        Console.WriteLine($"[SKIP] {basename} - unhandled texture format {texture.Format}");
+                        return null;
+                    }
+
+                    Console.WriteLine($"[SKIP] {basename} - unknown texture format {texture.Format}");
+                    return null;
                 }
             }
             catch (Exception)
