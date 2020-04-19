@@ -4,66 +4,139 @@ using System.IO;
 using System.Threading.Tasks;
 using Syroot.NintenTools.NSW.Bntx;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
+using CommandLine;
+using Syroot.NintenTools.NSW.Bfres;
+using Syroot.NintenTools.NSW.Bntx.GFX;
 
 namespace ACNHItemTextureExporter
 {
     class Program
     {
-        static void Main(string[] args)
+        class CommandLineOptions
         {
-            if (args.Length < 2)
-            {
-                Console.Error.WriteLine($"Usage: {Environment.CommandLine} <output dir> [input files/directories]");
-            }
+            [Option('n', "use-texture-name", Default = true, HelpText = "Use texture name instead of file name for output files")]
+            public bool UseTextureName { get; set; }
 
-            SaveTextures(args[0], args.Skip(1));
+            [Option('t', "threads", Default = -1, HelpText = "Max number of threads")]
+            public int Threads { get; set; }
 
-            Console.WriteLine("Complete");
+            [Option('r', "regex", Default = @"\.(?:bfres|zs)$", HelpText = "Filter filenames by regex")]
+            public string Regex { get; set; }
+
+            [Option('o', "output", Required = true, HelpText = "Output folder")]
+            public string OutputFolder { get; set; }
+
+            [Option('i', "input", Required = true, HelpText = "Input paths")]
+            public IEnumerable<string> InputPaths { get; set; }
         }
 
-        static void SaveTextures(string outputDir, IEnumerable<string> inputPaths)
+        static void Main(string[] args)
         {
-            var files = inputPaths.SelectMany(path =>
+            Parser.Default.ParseArguments<CommandLineOptions>(args)
+                .WithParsed(o =>
+               {
+                   SaveTextures(o);
+
+                   Console.WriteLine("Complete");
+               });
+        }
+
+        static void SaveTextures(CommandLineOptions options)
+        {
+            var files = options.InputPaths.SelectMany(path =>
             {
                 if (File.Exists(path)) return new[] { path };
-                if (Directory.Exists(path)) return DirectoryHelper.EnumerateFilesWithRegex(path, @"*\.(?:bfres|zs)", SearchOption.AllDirectories);
+                if (Directory.Exists(path)) return DirectoryHelper.EnumerateFilesWithRegex(path, options.Regex, SearchOption.AllDirectories);
                 return new string[] { };
             });
 
             var textureCount = 0;
-
-            Parallel.ForEach(files, f =>
+            Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = options.Threads }, f =>
             {
-                var textures = DecompressAndLoadTextures(f);
-                if (textures.Count != 1)
+                var timer = new Stopwatch();
+                timer.Start();
+                var nameWithoutExtensions = GetCleanFilenameWithoutExtensions(f);
+
+                var texture = DecompressAndLoadFile(f);
+                var basename = Path.GetFileName(f);
+                if (texture == null)
                 {
-                    var basename = Path.GetFileName(f);
-                    Console.Error.WriteLine($"Skipping {basename} because it has {textures.Count} textures so is probably not a layout file");
+                    Console.Error.WriteLine($"Skipping {basename} because it didn't look like a layout file");
+                    return;
                 }
-                foreach (var texture in textures)
+
+                try
                 {
-                    BitmapExporter.SaveBitmap(texture, Path.Combine(outputDir, $"{texture.Name}.png"));
-                    Console.WriteLine($"Exported {texture.Name}.png");
+                    var name = options.UseTextureName ? $"{texture.Name}.png" : $"{nameWithoutExtensions}.png";
+
+                    BitmapExporter.SaveBitmap(texture, Path.Combine(options.OutputFolder, name));
+                    Console.WriteLine($"Exported {name}");
                     Interlocked.Increment(ref textureCount);
                 }
+                catch (Exception)
+                {
+                    Console.Error.WriteLine($"Skipping {basename} because texture failed to load (maybe unknown format)");
+                }
+
+                timer.Stop();
+                Console.WriteLine($"Took {timer.ElapsedMilliseconds}ms");
             });
 
             Console.WriteLine($"Saved {textureCount} textures");
         }
 
-        static List<Texture> DecompressAndLoadTextures(string path)
+        static Texture DecompressAndLoadFile(string path)
         {
             var ext = Path.GetExtension(path);
-            if (ext == ".zs")
+            if (ext == ".bfres")
             {
-                var compressed = File.ReadAllBytes(path);
-                return TextureLoader.Load(ZstdDecompressor.DecompressToStream(compressed));
+                return GetTexture(new ResFile(path));
             }
             else
             {
-                return TextureLoader.Load(path);
+                var compressed = File.ReadAllBytes(path);
+                using (var sarcStream = ZstdDecompressor.DecompressToStream(compressed))
+                {
+                    using (var sarc = new SarcLoader(sarcStream))
+                    {
+                        var resFiles = sarc.Where(f => Path.GetExtension(f.Item1) == ".bfres");
+                        if (resFiles.Count() != 1) return null;
+                        using (var resFileStream = sarc.ExportStream(resFiles.First().Item2))
+                        {
+                            var resFile = new ResFile(resFileStream);
+                            return GetTexture(resFile);
+                        }
+                    }
+                }
             }
+        }
+
+        static Texture GetTexture(ResFile file)
+        {
+            if (file.ExternalFiles.Count() > 1) return null;
+            try
+            {
+                using (var bntxStream = file.ExternalFiles.First().GetStream())
+                {
+                    var bntxFile = new BntxFile(bntxStream);
+                    if (bntxFile.Textures.Count != 1) return null;
+                    var texture = bntxFile.Textures.First();
+                    if (texture.Format != SurfaceFormat.ASTC_4x4_SRGB) return null;
+                    return texture;
+                }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        static string GetCleanFilenameWithoutExtensions(string path)
+        {
+            var nameWithoutExtensions = Path.GetFileNameWithoutExtension(path);
+            return nameWithoutExtensions.Replace(".Nin_NX_NVN", "").Replace(".sarc", "");
         }
     }
 }

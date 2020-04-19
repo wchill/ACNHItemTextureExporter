@@ -15,7 +15,7 @@ namespace ACNHItemTextureExporter
         {
             Regex reSearchPattern = new Regex(searchPatternExpression, RegexOptions.IgnoreCase);
             return Directory.EnumerateFiles(path, "*", searchOption)
-                            .Where(file => reSearchPattern.IsMatch(Path.GetExtension(file)));
+                            .Where(file => reSearchPattern.IsMatch(file));
         }
     }
 }

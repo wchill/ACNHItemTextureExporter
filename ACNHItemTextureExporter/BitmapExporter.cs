@@ -26,8 +26,12 @@ namespace ACNHItemTextureExporter
                 for (int i = 0; i < arrayCount; i++)
                 {
                     Bitmap arrayBitMap = GetBitmap(texture, i, 0);
-                    arrayBitMap.Save($"{name}_Slice_{i}_{ext}");
-                    arrayBitMap.Dispose();
+
+                    if (arrayBitMap != null)
+                    {
+                        arrayBitMap.Save($"{name}_Slice_{i}_{ext}");
+                        arrayBitMap.Dispose();
+                    }
                 }
 
                 return;
@@ -35,8 +39,11 @@ namespace ACNHItemTextureExporter
 
             Bitmap bitMap = GetBitmap(texture, SurfaceLevel, MipLevel);
 
-            bitMap.Save(FileName);
-            bitMap.Dispose();
+            if (bitMap != null)
+            {
+                bitMap.Save(FileName);
+                bitMap.Dispose();
+            }
         }
 
         public static Span<byte> ConvertBgraToRgba(Span<byte> bytes)
@@ -54,9 +61,15 @@ namespace ACNHItemTextureExporter
         {
             int width = (int)Math.Max(1, texture.Width >> MipLevel);
             int height = (int)Math.Max(1, texture.Height >> MipLevel);
-            byte[] data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
-            AstcDecoder.TryDecodeToRgba8(data, 4, 4, width, height, 1, 1, out var decoded);
-            return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
+            Memory<byte> data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
+            if (AstcDecoder.TryDecodeToRgba8(data, 4, 4, width, height, 1, 1, out var decoded))
+            {
+                return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
+            }
+            else
+            {
+                return null;
+            }
         }
 
         public static Bitmap GetBitmapFromBytes(Span<byte> Buffer, int Width, int Height, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
@@ -68,7 +81,11 @@ namespace ACNHItemTextureExporter
             BitmapData ImgData = Img.LockBits(Rect, ImageLockMode.WriteOnly, Img.PixelFormat);
 
             if (Buffer.Length > ImgData.Stride * Img.Height)
+            {
+                Img.UnlockBits(ImgData);
+                Img.Dispose();
                 throw new Exception($"Invalid Buffer Length ({Buffer.Length})!!!");
+            }
 
             Marshal.Copy(Buffer.ToArray(), 0, ImgData.Scan0, Buffer.Length);
 
@@ -77,7 +94,7 @@ namespace ACNHItemTextureExporter
             return Img;
         }
 
-        public static byte[] GetImageData(Texture texture, int ArrayLevel = 0, int MipLevel = 0, int DepthLevel = 0)
+        public static Memory<byte> GetImageData(Texture texture, int targetArrayLevel = 0, int targetMipLevel = 0, int targetDepthLevel = 0)
         {
             int target = 1;
             uint blkWidth = 4;
@@ -104,14 +121,12 @@ namespace ACNHItemTextureExporter
                         if (TegraX1Swizzle.Pow2RoundUp(TegraX1Swizzle.DivRoundUp(height, blkWidth)) < linesPerBlockHeight)
                             blockHeightShift += 1;
 
-                        //Console.WriteLine($"{width} {height} {depth} {blkWidth} {blkHeight} {blkDepth} {target} {bpp} {texture.TileMode} {(int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift)} {texture.TextureData[arrayLevel][mipLevel].Length}");
-                        byte[] result = TegraX1Swizzle.Deswizzle(width, height, blkWidth, blkHeight, target, bpp, (uint)texture.TileMode, (int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift), texture.TextureData[arrayLevel][mipLevel]);
-                        //Create a copy and use that to remove uneeded data
-                        byte[] result_ = new byte[size];
-                        Array.Copy(result, 0, result_, 0, size);
-
-                        if (ArrayLevel == arrayLevel && MipLevel == mipLevel && DepthLevel == depthLevel)
-                            return result_;
+                        if (targetArrayLevel == arrayLevel && targetMipLevel == mipLevel && targetDepthLevel == depthLevel)
+                        {
+                            //Console.WriteLine($"{width} {height} {depth} {blkWidth} {blkHeight} {blkDepth} {target} {bpp} {texture.TileMode} {(int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift)} {texture.TextureData[arrayLevel][mipLevel].Length}");
+                            var result = TegraX1Swizzle.Deswizzle(width, height, blkWidth, blkHeight, target, bpp, (uint)texture.TileMode, (int)Math.Max(0, texture.BlockHeightLog2 - blockHeightShift), texture.TextureData[arrayLevel][mipLevel]);
+                            return new ArraySegment<byte>(result, 0, (int)size);
+                        }
                     }
                 }
             }

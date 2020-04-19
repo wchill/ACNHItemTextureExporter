@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ACNHItemTextureExporter": {
+      "commandName": "Project",
+      "commandLineArgs": "-n -t -1 -o C:\\Users\\wchill.CHILLY\\Desktop\\output\\romSARCfs\\textures -r \"Layout_.*\\.(?:bfres|zs)$\" -i C:\\Users\\wchill.CHILLY\\Desktop\\output\\romfs\\Model"
+    }
+  }
+}
