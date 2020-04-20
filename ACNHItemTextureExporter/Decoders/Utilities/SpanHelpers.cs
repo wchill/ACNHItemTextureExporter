@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Ryujinx.Common.Utilities
+namespace ACNHItemTextureExporter.Decoders.Utilities
 {
     public static class SpanHelpers
     {

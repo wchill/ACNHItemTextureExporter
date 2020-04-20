@@ -1,8 +1,8 @@
-﻿using Ryujinx.Common.Utilities;
-using System;
+﻿using System;
 using System.Diagnostics;
+using ACNHItemTextureExporter.Decoders.Utilities;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     public struct BitStream128
     {

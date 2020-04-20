@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using ACNHItemTextureExporter.Decoders.Astc;
+using ACNHItemTextureExporter.Decoders.Rgba;
 using Syroot.NintenTools.NSW.Bfres;
 using Syroot.NintenTools.NSW.Bntx;
 
@@ -53,7 +55,7 @@ namespace ACNHItemTextureExporter
                         return null;
                     }
                     var texture = bntxFile.Textures.First();
-                    if (texture.Format.ToString().Contains("ASTC"))
+                    if (IsTextureDecodable(texture))
                     {
                         return texture;
                     }
@@ -78,6 +80,24 @@ namespace ACNHItemTextureExporter
         {
             var nameWithoutExtensions = Path.GetFileNameWithoutExtension(path);
             return nameWithoutExtensions.Replace(".Nin_NX_NVN", "").Replace(".sarc", "");
+        }
+
+        private static bool IsTextureDecodable(Texture texture)
+        {
+            if (AstcDecoder.CanHandle(texture))
+            {
+                return true;
+            }
+            if (DDSDecoder.CanHandle(texture))
+            {
+                return true;
+            }
+            if (RgbaDecoder.CanHandle(texture))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

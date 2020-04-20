@@ -55,8 +55,6 @@ namespace ACNHItemTextureExporter
             { SurfaceFormat.R32_G32_UNORM,         new TextureFormatInfo(8, 1,  1, TargetBuffer.Color) },
             { SurfaceFormat.R32_G32_B32_UNORM,     new TextureFormatInfo(8, 1,  1, TargetBuffer.Color) },
             { SurfaceFormat.R32_G32_B32_A32_UNORM, new TextureFormatInfo(8, 1,  1, TargetBuffer.Color) },
-            { SurfaceFormat.BC6_FLOAT,             new TextureFormatInfo(16, 1,  1, TargetBuffer.Color) },
-            { SurfaceFormat.BC6_UFLOAT,            new TextureFormatInfo(16, 1,  1, TargetBuffer.Color) },
             { SurfaceFormat.B5_G5_R5_A1_UNORM,     new TextureFormatInfo(2, 1,  1, TargetBuffer.Color) },
             { SurfaceFormat.R16_UINT,              new TextureFormatInfo(2,  1,  1, TargetBuffer.Color) },
             { SurfaceFormat.R16_UNORM,             new TextureFormatInfo(2,  1,  1, TargetBuffer.Color) },
@@ -71,6 +69,8 @@ namespace ACNHItemTextureExporter
             { SurfaceFormat.BC4_SNORM,             new TextureFormatInfo(8,  4,  4, TargetBuffer.Color) },
             { SurfaceFormat.BC5_UNORM,             new TextureFormatInfo(16, 4,  4, TargetBuffer.Color) },
             { SurfaceFormat.BC5_SNORM,             new TextureFormatInfo(16, 4,  4, TargetBuffer.Color) },
+            { SurfaceFormat.BC6_FLOAT,             new TextureFormatInfo(16, 1,  1, TargetBuffer.Color) },
+            { SurfaceFormat.BC6_UFLOAT,            new TextureFormatInfo(16, 1,  1, TargetBuffer.Color) },
             { SurfaceFormat.BC7_SRGB,              new TextureFormatInfo(16, 4,  4, TargetBuffer.Color) },
             { SurfaceFormat.BC7_UNORM,             new TextureFormatInfo(16, 4,  4, TargetBuffer.Color) },
 

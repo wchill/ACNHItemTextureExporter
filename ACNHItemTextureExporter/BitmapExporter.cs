@@ -1,5 +1,4 @@
-﻿using Ryujinx.Graphics.Texture.Astc;
-using Syroot.NintenTools.NSW.Bntx;
+﻿using Syroot.NintenTools.NSW.Bntx;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -7,6 +6,8 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using ACNHItemTextureExporter.Decoders.Astc;
+using ACNHItemTextureExporter.Decoders.Rgba;
 using Syroot.NintenTools.NSW.Bntx.GFX;
 
 namespace ACNHItemTextureExporter
@@ -79,14 +80,23 @@ namespace ACNHItemTextureExporter
             int height = (int)Math.Max(1, texture.Height >> MipLevel);
             TextureFormatInfo formatInfo = TextureFormatInfo.FormatTable[texture.Format];
             Memory<byte> data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
-            if (AstcDecoder.TryDecodeToRgba8(data, (int) formatInfo.BlockWidth, (int) formatInfo.BlockHeight, width, height, 1, 1, out var decoded))
+            if (AstcDecoder.CanHandle(texture))
             {
-                return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
+                if (AstcDecoder.TryDecodeToRgba8(data, (int)formatInfo.BlockWidth, (int)formatInfo.BlockHeight, width, height, 1, 1, out var decoded))
+                {
+                    return GetBitmapFromBytes(ConvertBgraToRgba(decoded), width, height, PixelFormat.Format32bppArgb);
+                }
             }
-            else
+            else if (DDSDecoder.CanHandle(texture))
             {
-                return null;
+                return DDSDecoder.Decompress(data.Span, width, height, texture.Format);
             }
+            else if (RgbaDecoder.CanHandle(texture))
+            {
+                return RgbaDecoder.Decode(data.Span, width, height, texture.Format);
+            }
+
+            return null;
         }
 
         public static Bitmap GetBitmapFromBytes(Span<byte> Buffer, int Width, int Height, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
@@ -119,7 +129,7 @@ namespace ACNHItemTextureExporter
             uint blkHeight = formatInfo.BlockHeight;
 
             int linesPerBlockHeight = (1 << (int)texture.BlockHeightLog2) * 8;
-            uint bpp = 16;
+            uint bpp = formatInfo.BytesPerPixel;
 
             uint numDepth = 1;
 

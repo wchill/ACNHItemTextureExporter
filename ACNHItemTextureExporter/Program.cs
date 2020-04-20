@@ -87,19 +87,18 @@ namespace ACNHItemTextureExporter
                     if (!File.Exists(path))
                     {
                         BitmapExporter.SaveBitmap(texture, path);
-                        Console.WriteLine($"[OUT] {basename} -> {name}");
+                        Console.WriteLine($"[OUT] {basename} -> {name} ({texture.Format})");
                     }
                     else
                     {
-                        BitmapExporter.SaveBitmap(texture, path);
-                        Console.WriteLine($"[DUPE] {basename} -> {name}");
+                        Console.WriteLine($"[DUPE] {basename} -> {name} ({texture.Format})");
                     }
                     
                     Interlocked.Increment(ref textureCount);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"[ERR] {basename} - texture failed to load ({e.Message})");
+                    Console.WriteLine($"[ERR] {basename} - texture ({texture.Format} failed to load ({e.Message})");
                 }
 
             });

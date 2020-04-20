@@ -1,4 +1,4 @@
-﻿namespace Ryujinx.Graphics.Texture.Astc
+﻿namespace ACNHItemTextureExporter.Decoders.Astc
 {
     internal static class Bits
     {

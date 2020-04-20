@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Numerics;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     internal struct IntegerEncoded
     {

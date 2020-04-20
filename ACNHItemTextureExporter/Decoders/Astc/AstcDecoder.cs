@@ -1,15 +1,54 @@
-﻿using Ryujinx.Common.Utilities;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using ACNHItemTextureExporter.Decoders.Utilities;
+using Syroot.NintenTools.NSW.Bntx.GFX;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     // https://github.com/GammaUNC/FasTC/blob/master/ASTCEncoder/src/Decompressor.cpp
     public class AstcDecoder
     {
+        private static HashSet<SurfaceFormat> _supportedFormats = new HashSet<SurfaceFormat>
+        {
+            //SurfaceFormat.ASTC_4x4_UNORM,
+            SurfaceFormat.ASTC_4x4_SRGB,
+            //SurfaceFormat.ASTC_5x4_UNORM,
+            SurfaceFormat.ASTC_5x4_SRGB,
+            //SurfaceFormat.ASTC_5x5_UNORM,
+            SurfaceFormat.ASTC_5x5_SRGB,
+            //SurfaceFormat.ASTC_6x5_UNORM,
+            SurfaceFormat.ASTC_6x5_SRGB,
+            //SurfaceFormat.ASTC_6x6_UNORM,
+            SurfaceFormat.ASTC_6x6_SRGB,
+            //SurfaceFormat.ASTC_8x5_UNORM,
+            SurfaceFormat.ASTC_8x5_SRGB,
+            //SurfaceFormat.ASTC_8x6_UNORM,
+            SurfaceFormat.ASTC_8x6_SRGB,
+            //SurfaceFormat.ASTC_8x8_UNORM,
+            SurfaceFormat.ASTC_8x8_SRGB,
+            //SurfaceFormat.ASTC_10x5_UNORM,
+            SurfaceFormat.ASTC_10x5_SRGB,
+            //SurfaceFormat.ASTC_10x6_UNORM,
+            SurfaceFormat.ASTC_10x6_SRGB,
+            //SurfaceFormat.ASTC_10x8_UNORM,
+            SurfaceFormat.ASTC_10x8_SRGB,
+            //SurfaceFormat.ASTC_10x10_UNORM,
+            SurfaceFormat.ASTC_10x10_SRGB,
+            //SurfaceFormat.ASTC_12x10_UNORM,
+            SurfaceFormat.ASTC_12x10_SRGB,
+            //SurfaceFormat.ASTC_12x12_UNORM,
+            SurfaceFormat.ASTC_12x12_SRGB
+        };
+
+        public static bool CanHandle(Syroot.NintenTools.NSW.Bntx.Texture texture)
+        {
+            return _supportedFormats.Contains(texture.Format);
+        }
+
         private ReadOnlyMemory<byte> InputBuffer { get; }
         private Memory<byte> OutputBuffer { get; }
 

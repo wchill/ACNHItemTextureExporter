@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     public class AstcDecoderException : Exception
     {

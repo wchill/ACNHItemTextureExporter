@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     [StructLayout(LayoutKind.Sequential)]
     struct AstcPixel

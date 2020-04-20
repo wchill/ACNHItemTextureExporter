@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Ryujinx.Graphics.Texture.Astc
+namespace ACNHItemTextureExporter.Decoders.Astc
 {
     [StructLayout(LayoutKind.Sequential, Size = AstcPixel.StructSize * 8)]
     internal struct EndPointSet
