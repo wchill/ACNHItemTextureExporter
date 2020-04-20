@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ACNHItemTextureExporter\ACNHItemTextureExporter.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Syroot.NintenTools.NSW.Bntx">
+      <HintPath>..\ACNHItemTextureExporter\lib\Syroot.NintenTools.NSW.Bntx.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+
+</Project>

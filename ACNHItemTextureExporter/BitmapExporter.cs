@@ -11,7 +11,7 @@ using Syroot.NintenTools.NSW.Bntx.GFX;
 
 namespace ACNHItemTextureExporter
 {
-    class BitmapExporter
+    public class BitmapExporter
     {
         public static void SaveBitmap(Texture texture, string FileName, bool ExportSurfaceLevel = false, int SurfaceLevel = 0, int MipLevel = 0)
         {
@@ -45,6 +45,21 @@ namespace ACNHItemTextureExporter
                 bitMap.Save(FileName);
                 bitMap.Dispose();
             }
+        }
+
+        public static bool SaveBitmap(Texture texture, Stream stream, bool ExportSurfaceLevel = false,
+            int SurfaceLevel = 0, int MipLevel = 0)
+        {
+            Bitmap bitMap = GetBitmap(texture, SurfaceLevel, MipLevel);
+
+            if (bitMap != null)
+            {
+                bitMap.Save(stream, ImageFormat.Png);
+                bitMap.Dispose();
+                return true;
+            }
+
+            return false;
         }
 
         public static Span<byte> ConvertBgraToRgba(Span<byte> bytes)
