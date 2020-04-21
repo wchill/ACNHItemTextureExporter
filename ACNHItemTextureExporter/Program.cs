@@ -16,11 +16,17 @@ namespace ACNHItemTextureExporter
     {
         class CommandLineOptions
         {
-            [Option('n', "use-texture-name", Default = true, HelpText = "Use texture name instead of file name for output files")]
-            public bool UseTextureName { get; set; }
+            [Option('n', "use-file-name", HelpText = "Use original file name instead of texture name for output files")]
+            public bool UseFileName { get; set; }
+
+            [Option('c', "cropped", HelpText = "Output cropped textures instead of original")]
+            public bool CropTextures { get; set; }
 
             [Option('t', "threads", Default = -1, HelpText = "Max number of threads")]
             public int Threads { get; set; }
+
+            [Option('f', "force", HelpText = "Force overwrite if file exists")]
+            public bool ForceOverwrite { get; set; }
 
             [Option('r', "regex", Default = @"\.(?:bfres|zs)$", HelpText = "Filter filenames by regex")]
             public string Regex { get; set; }
@@ -58,8 +64,6 @@ namespace ACNHItemTextureExporter
             timer.Start();
             Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = options.Threads }, f =>
             {
-                var nameWithoutExtensions = TextureLoader.GetCleanFilenameWithoutExtensions(f);
-
                 var texture = TextureLoader.DecompressAndLoadFile(f);
                 var basename = Path.GetFileName(f);
                 if (texture == null)
@@ -69,24 +73,12 @@ namespace ACNHItemTextureExporter
 
                 try
                 {
-                    string path;
-                    string name;
-                    if (nameWithoutExtensions.Contains("Layout_"))
-                    {
-                        var split = nameWithoutExtensions.Split('_', 3);
-                        name = options.UseTextureName ? $"{texture.Name}.png" : $"{split[2]}.png";
-                        Directory.CreateDirectory(Path.Combine(options.OutputFolder, split[0], split[1]));
-                        path = Path.Combine(options.OutputFolder, split[0], split[1], name);
-                    }
-                    else
-                    {
-                        name = options.UseTextureName ? $"{texture.Name}.png" : $"{nameWithoutExtensions}.png";
-                        path = Path.Combine(options.OutputFolder, name);
-                    }
+                    string path = GenerateFileName(f, texture.Name, options);
+                    string name = Path.GetFileName(path);
 
-                    if (!File.Exists(path))
+                    if (!File.Exists(path) || options.ForceOverwrite)
                     {
-                        BitmapExporter.SaveBitmap(texture, path);
+                        BitmapExporter.SaveBitmap(texture, path, options.CropTextures);
                         Console.WriteLine($"[OUT] {basename} -> {name} ({texture.Format})");
                     }
                     else
@@ -106,6 +98,33 @@ namespace ACNHItemTextureExporter
             timer.Stop();
             Console.WriteLine($"Saved {textureCount} textures");
             Console.WriteLine($"Took {timer.ElapsedMilliseconds}ms");
+        }
+
+        private static string GenerateFileName(string name, string textureName, CommandLineOptions options)
+        {
+            var nameWithoutExtensions = TextureLoader.GetCleanFilenameWithoutExtensions(name);
+            string filename;
+            string path;
+
+            if (nameWithoutExtensions.Contains("Layout_"))
+            {
+                var split = nameWithoutExtensions.Split('_', 3);
+                filename = options.UseFileName ? split[2] : textureName;
+                Directory.CreateDirectory(Path.Combine(options.OutputFolder, split[0], split[1]));
+                path = Path.Combine(options.OutputFolder, split[0], split[1]);
+            }
+            else
+            {
+                filename = options.UseFileName ? nameWithoutExtensions : textureName;
+                path = options.OutputFolder;
+            }
+
+            if (options.CropTextures)
+            {
+                filename += "Cropped";
+            }
+
+            return Path.Combine(path, $"{filename}.png");
         }
     }
 }

@@ -35,8 +35,8 @@ namespace ACNHItemTextureExporter
         {
             Color[] CLUT = new Color[4];
 
-            int c0 = Input.GetInt16(Offset);
-            int c1 = Input.GetInt16(Offset + 2);
+            int c0 = Input.GetUInt16(Offset);
+            int c1 = Input.GetUInt16(Offset + 2);
 
             CLUT[0] = DecodeRGB565(c0);
             CLUT[1] = DecodeRGB565(c1);
@@ -208,7 +208,7 @@ namespace ACNHItemTextureExporter
                     CalculateBC3Alpha(Alpha);
 
                     int AlphaLow = data.GetInt32(IOffs + 2);
-                    int AlphaHigh = data.GetInt16(IOffs + 6);
+                    int AlphaHigh = data.GetUInt16(IOffs + 6);
 
                     ulong AlphaCh = (uint)AlphaLow | (ulong)AlphaHigh << 32;
 

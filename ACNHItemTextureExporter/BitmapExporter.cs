@@ -14,9 +14,10 @@ namespace ACNHItemTextureExporter
 {
     public class BitmapExporter
     {
-        public static void SaveBitmap(Texture texture, string FileName, bool ExportSurfaceLevel = false, int SurfaceLevel = 0, int MipLevel = 0)
+        public static void SaveBitmap(Texture texture, string FileName, bool crop = false, bool ExportSurfaceLevel = false, int SurfaceLevel = 0, int MipLevel = 0)
         {
             // TODO: Handle array bitmaps
+            /*
             var arrayCount = 1;
             if (arrayCount > 1 && !ExportSurfaceLevel)
             {
@@ -38,14 +39,113 @@ namespace ACNHItemTextureExporter
 
                 return;
             }
+            */
 
             Bitmap bitMap = GetBitmap(texture, SurfaceLevel, MipLevel);
 
-            if (bitMap != null)
+            if (!crop)
             {
-                bitMap.Save(FileName);
-                bitMap.Dispose();
+                if (bitMap != null)
+                {
+                    bitMap.Save(FileName);
+                    bitMap.Dispose();
+                }
             }
+            else
+            {
+                if (bitMap != null)
+                {
+                    using var newBitmap = CropBitmap(bitMap);
+                    bitMap.Dispose();
+                    newBitmap.Save(FileName);
+                }
+            }
+        }
+
+        private static Bitmap CropBitmap(Bitmap bitmap)
+        {
+            Bitmap bmpImage = new Bitmap(bitmap);
+            var bb = GetBoundingBox(bmpImage);
+            return bmpImage.Clone(bb, bmpImage.PixelFormat);
+        }
+
+        private static Rectangle GetBoundingBox(Bitmap bitmap)
+        {
+            var bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+            IntPtr ptr = bitmapData.Scan0;
+
+            // Declare an array to hold the bytes of the bitmap.
+            var stride = Math.Abs(bitmapData.Stride);
+            int bytes = stride * bitmap.Height;
+            byte[] data = new byte[bytes];
+
+            // Copy the RGB values into the array.
+            Marshal.Copy(ptr, data, 0, bytes);
+
+            bitmap.UnlockBits(bitmapData);
+
+            // Find top non-empty scanline
+            int topY;
+            for (topY = 0; topY < bitmapData.Height; topY++)
+            {
+                var span = data.AsSpan(topY * stride, stride);
+                if (DoesScanlineHaveNontransparentPixel(span))
+                {
+                    break;
+                }
+            }
+
+            int bottomY;
+            for (bottomY = bitmapData.Height - 1; bottomY > topY; bottomY--)
+            {
+                var span = data.AsSpan(bottomY * stride, stride);
+                if (DoesScanlineHaveNontransparentPixel(span))
+                {
+                    break;
+                }
+            }
+
+            int leftX;
+            for (leftX = 0; leftX < bitmap.Width; leftX++)
+            {
+                if (DoesColumnHaveNontransparentPixel(leftX, topY, bottomY, stride, data))
+                {
+                    break;
+                }
+            }
+
+            int rightX;
+            for (rightX = bitmap.Width - 1; rightX > leftX; rightX--)
+            {
+                if (DoesColumnHaveNontransparentPixel(rightX, topY, bottomY, stride, data))
+                {
+                    break;
+                }
+            }
+
+            return new Rectangle(leftX, topY, rightX - leftX + 1, bottomY - topY + 1);
+        }
+
+        private static bool DoesScanlineHaveNontransparentPixel(Span<byte> data)
+        {
+            for (var i = 0; i < data.Length; i += 4)
+            {
+                if (data[i] != 0) return true;
+            }
+
+            return false;
+        }
+
+        private static bool DoesColumnHaveNontransparentPixel(int x, int topY, int bottomY, int stride, byte[] data)
+        {
+            for (var y = topY; y <= bottomY; y++)
+            {
+                var index = y * stride + (4 * x);
+                if (data[index] != 0) return true;
+            }
+
+            return false;
         }
 
         public static bool SaveBitmap(Texture texture, Stream stream, bool ExportSurfaceLevel = false,
@@ -80,6 +180,7 @@ namespace ACNHItemTextureExporter
             int height = (int)Math.Max(1, texture.Height >> MipLevel);
             TextureFormatInfo formatInfo = TextureFormatInfo.FormatTable[texture.Format];
             Memory<byte> data = GetImageData(texture, ArrayLevel, MipLevel, DepthLevel);
+
             if (AstcDecoder.CanHandle(texture))
             {
                 if (AstcDecoder.TryDecodeToRgba8(data, (int)formatInfo.BlockWidth, (int)formatInfo.BlockHeight, width, height, 1, 1, out var decoded))
