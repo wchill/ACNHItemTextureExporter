@@ -124,12 +124,13 @@ namespace ACNHItemTextureExporter
                 }
             }
 
+            //return new Rectangle(leftX, topY, rightX - leftX + 1, bottomY - topY + 1);
             return new Rectangle(leftX, topY, rightX - leftX + 1, bottomY - topY + 1);
         }
 
         private static bool DoesScanlineHaveNontransparentPixel(Span<byte> data)
         {
-            for (var i = 0; i < data.Length; i += 4)
+            for (var i = 3; i < data.Length; i += 4)
             {
                 if (data[i] != 0) return true;
             }
@@ -141,7 +142,7 @@ namespace ACNHItemTextureExporter
         {
             for (var y = topY; y <= bottomY; y++)
             {
-                var index = y * stride + (4 * x);
+                var index = y * stride + (4 * x) + 3;
                 if (data[index] != 0) return true;
             }
 
